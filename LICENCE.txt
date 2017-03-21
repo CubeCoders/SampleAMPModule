@@ -1,0 +1,6 @@
+﻿This source code is for reference purposes only, it may not be shared, distributed, transmitted or included in any other application. 
+It may only be used by persons or organisations holding a valid AMP Professional/Network/Enterprise licence.
+This is solely intended for use by AMP plugin and module developers as a reference for how to build a complete, functional application module for AMP.
+This code may not be used to build other applications that manage Rust game servers.
+
+©2017 CubeCoders Limited - All rights reserved.
