@@ -106,9 +106,7 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>"C:\Program Files (x86)\Windows Kits\8.1\bin\x64\signtool.exe" sign /f "$(SolutionDir)GSMyAdmin\CodeSignCertCCL.pfx" /d "AMP Core Runtime" /p 4bqwpmD11dh9NNY0zFco /v "$(TargetPath)"
-
-xcopy "$(TargetPath)" "$(SolutionDir)GSMyAdmin\bin\$(ConfigurationName)\Plugins\$(ProjectName)\" /Y
+    <PostBuildEvent>xcopy "$(TargetPath)" "$(SolutionDir)GSMyAdmin\bin\$(ConfigurationName)\Plugins\$(ProjectName)\" /Y
 
 IF NOT EXIST "$(TargetDir)WebRoot\" GOTO NOWEB
 xcopy "$(TargetDir)WebRoot\*.*" "$(SolutionDir)GSMyAdmin\bin\$(ConfigurationName)\Plugins\$(ProjectName)\WebRoot\" /Y /E
