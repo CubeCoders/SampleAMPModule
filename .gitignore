@@ -3,3 +3,9 @@
 ################################################################################
 
 /.vs
+/obj/CI_Build/CoreCompileInputs.cache
+/obj
+/obj/CI_Build/CoreCompileInputs.cache
+/obj
+/obj
+/obj

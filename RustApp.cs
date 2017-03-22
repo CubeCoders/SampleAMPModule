@@ -16,6 +16,8 @@ using System.Threading.Tasks;
 
 namespace RustModule
 {
+    //AppServerBase provides some common functionality for handling application output. It'll automatically discover any methods
+    //with the MessageHandler attribute and use them to process messages according to their regex when you use ProcessOutput.
     public class RustApp : AppServerBase, IApplicationWrapper, IHasReadableConsole, IHasWriteableConsole, IHasSimpleUserList
     {
         private ModuleMain module;
@@ -31,6 +33,7 @@ namespace RustModule
             this.Users = new List<SimpleUser>();
         }
 
+        //Message handlers have to return a boolean value. True if they add to the log themselves (chat, etc) or false if they don't.
         [MessageHandler(@"^New version detected!$")]
         private bool UpdateAvailableHandler(Match match)
         {
@@ -257,6 +260,7 @@ namespace RustModule
 
             RandomRCONPassword = GenerateRandomPassword();
 
+            //GetTaggedValues() returns information about all of the settings according to their tag, which is the final parameter of the WebSetting attribute.
             var settingArgs = string.Join(" ", module.settings.Rust.GetTaggedValues().Select(kvp => $"+{kvp.Key} \"{kvp.Value.ToString()}\""));
 
             string args = $"-batchmode -nographics +rcon.password \"{RandomRCONPassword}\" {settingArgs} {module.settings.Rust.CustomArgs}";
@@ -274,6 +278,7 @@ namespace RustModule
                 Arguments = args,
             };
 
+            //Rust requires some extra environment variables on Linux to tell it where its own plugins are.
             if (module.os == SupportedOS.Linux)
             {
                 string LD_LIBRARY_PATH;
@@ -369,6 +374,8 @@ namespace RustModule
 
                 bool connectResult = false;
                 int rconRetry = 0;
+                
+                //Keep trying to connect to RCON over and over until we either succeed, get a permission denied, or the server stops.
                 do
                 {
                     connectResult = await rcon.Connect("127.0.0.1", module.settings.Rust.RconPort);
@@ -387,6 +394,7 @@ namespace RustModule
 
                 var authResult = await rcon.Login(RandomRCONPassword);
 
+                //Once we're connected, the application can transition to the Ready state - even if auth failed (but this stops the console being usable)
                 if (connectResult && authResult)
                 {
                     PostMessage("chat.serverlog true");

@@ -31,7 +31,7 @@ namespace RustModule
             [WebSetting("Server Name", "The name of the server as it appears in the server list", "Rust Settings", false, "server.hostname")]
             public string ServerName = "A Rust server";
             [WebSetting("Server Description", "A short description of your server. Multiple lines separated with \\n", "Rust Settings", false, "server.description")]
-            public string ServerDescriptiono = "My Rust server - powered by AMP";
+            public string ServerDescription = "My Rust server - powered by AMP";
             [WebSetting("Header Image URL", "A http(s) link to a URL for your servers banner image", "Rust Settings", false, "server.headerimage")]
             public string HeaderImageURL = "";
             [WebSetting("Server Website URL", "A web link to your servers web page for the 'Visit Website' button", "Rust Settings", false, "server.url")]
