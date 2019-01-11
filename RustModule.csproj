@@ -56,9 +56,17 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="DotNetZip, Version=1.10.1.0, Culture=neutral, PublicKeyToken=6583c7c814667745, processorArchitecture=MSIL">
-      <HintPath>..\packages\DotNetZip.1.10.1\lib\net20\DotNetZip.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="DotNetZip">
+      <HintPath>D:\AMP\Instances\2-Rust\DotNetZip.dll</HintPath>
+    </Reference>
+    <Reference Include="ModuleShared">
+      <HintPath>D:\AMP\Instances\2-Rust\ModuleShared.dll</HintPath>
+    </Reference>
+    <Reference Include="RCONPlugin">
+      <HintPath>D:\AMP\Instances\2-Rust\Plugins\RCONPlugin\RCONPlugin.dll</HintPath>
+    </Reference>
+    <Reference Include="steamcmdplugin">
+      <HintPath>D:\AMP\Instances\2-Rust\Plugins\steamcmdplugin\steamcmdplugin.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -77,23 +85,6 @@
   </ItemGroup>
   <ItemGroup>
     <WCFMetadata Include="Service References\" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\GameModule\ModuleShared.csproj">
-      <Project>{3a03759c-4dff-482d-a9d6-dc6f9857f018}</Project>
-      <Name>ModuleShared</Name>
-      <Private>False</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\RCONClient\RCONClientPlugin.csproj">
-      <Project>{fc44102f-260b-4ede-a161-bccd91ede759}</Project>
-      <Name>RCONClientPlugin</Name>
-      <Private>False</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\srcds\steamcmdplugin.csproj">
-      <Project>{816e69d0-1712-4f6e-bec0-7196fcbe62f2}</Project>
-      <Name>steamcmdplugin</Name>
-      <Private>False</Private>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Content Include="LICENCE.txt" />

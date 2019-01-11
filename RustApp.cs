@@ -1,9 +1,9 @@
 ﻿//AMP Rust Module - See LICENCE.txt
-//©2017 CubeCoders Limited - All rights reserved.
+//©2017-2019 CubeCoders Limited - All rights reserved.
 
 using Ionic.Zip;
 using ModuleShared;
-using RCONClientPlugin;
+using RCONPlugin;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -16,14 +16,10 @@ using System.Threading.Tasks;
 
 namespace RustModule
 {
-    //AppServerBase provides some common functionality for handling application output. It'll automatically discover any methods
-    //with the MessageHandler attribute and use them to process messages according to their regex when you use ProcessOutput.
     public class RustApp : AppServerBase, IApplicationWrapper, IHasReadableConsole, IHasWriteableConsole, IHasSimpleUserList
     {
         private ModuleMain module;
-        public AMPProcess ApplicationProcess { get; private set; }
 
-        private const int consoleBackscrollLength = 40;
         private bool IgnoreStatus = false;
         private bool IssueUpdateEvent = true;
 
@@ -33,7 +29,6 @@ namespace RustModule
             this.Users = new List<SimpleUser>();
         }
 
-        //Message handlers have to return a boolean value. True if they add to the log themselves (chat, etc) or false if they don't.
         [MessageHandler(@"^New version detected!$")]
         private bool UpdateAvailableHandler(Match match)
         {
@@ -231,18 +226,17 @@ namespace RustModule
         internal void PostInit()
         {
             module.steamcmd.UpdateProgressChange += Steamcmd_UpdateProgressChange;
-            currentApp = module.steamcmd.GetAppInfo(258550);
         }
 
-        private steamcmdplugin.steamcmdhelper.AppInfo currentApp;
+        private steamcmdplugin.Steamcmdhelper.AppInfo CurrentApp => module.steamcmd.CurrentApp;
 
-        private Dictionary<SupportedOS, String> SRCDSAppPath = new Dictionary<SupportedOS, string>()
+        private readonly Dictionary<SupportedOS, string> SRCDSAppPath = new Dictionary<SupportedOS, string>()
         {
             { SupportedOS.Windows, "RustDedicated.exe" },
             { SupportedOS.Linux, "RustDedicated" }
         };
 
-        private string WorkingDir => Path.Combine(module.settings.Rust.SteamCMDPath, currentApp.ID.ToString());
+        private string WorkingDir => Path.Combine(module.settings.Rust.SteamCMDPath, CurrentApp.ID.ToString());
         private string ServerFile => Path.Combine(WorkingDir, SRCDSAppPath[this.module.os]);
 
         public bool IsGameServerInstalled() => File.Exists(ServerFile);
@@ -254,16 +248,16 @@ namespace RustModule
         {
             ApplicationProcess = new AMPProcess()
             {
-                Win32RequiresConsoleAssistant = false
+                Win32RequiresConsoleAssistant = false,
             };
-            var id = currentApp.ID;
+            var id = CurrentApp.ID;
 
             RandomRCONPassword = GenerateRandomPassword();
 
             //GetTaggedValues() returns information about all of the settings according to their tag, which is the final parameter of the WebSetting attribute.
             var settingArgs = string.Join(" ", module.settings.Rust.GetTaggedValues().Select(kvp => $"+{kvp.Key} \"{kvp.Value.ToString()}\""));
 
-            string args = $"-batchmode -nographics +rcon.password \"{RandomRCONPassword}\" {settingArgs} {module.settings.Rust.CustomArgs}";
+            string args = $"-batchmode -nographics -logFile +rcon.password \"{RandomRCONPassword}\" {settingArgs} +rcon.web \"False\" {module.settings.Rust.CustomArgs}";
 
             ApplicationProcess.StartInfo = new ProcessStartInfo()
             {
@@ -281,11 +275,10 @@ namespace RustModule
             //Rust requires some extra environment variables on Linux to tell it where its own plugins are.
             if (module.os == SupportedOS.Linux)
             {
-                string LD_LIBRARY_PATH;
-                LD_LIBRARY_PATH = Environment.GetEnvironmentVariable(nameof(LD_LIBRARY_PATH));
+                string LD_LIBRARY_PATH = Environment.GetEnvironmentVariable(nameof(LD_LIBRARY_PATH));
                 var AddPath = Path.Combine(WorkingDir, "RustDedicated_Data", "Plugins", "x86_64");
                 LD_LIBRARY_PATH = LD_LIBRARY_PATH + $":{AddPath}";
-                ApplicationProcess.StartInfo.EnvironmentVariables[nameof(LD_LIBRARY_PATH)] = LD_LIBRARY_PATH;
+                ApplicationProcess.StartInfo.AddEnvirionmentVariable(nameof(LD_LIBRARY_PATH),LD_LIBRARY_PATH);
             }
 
             ApplicationProcess.EnableRaisingEvents = true;
@@ -374,11 +367,17 @@ namespace RustModule
 
                 bool connectResult = false;
                 int rconRetry = 0;
-                
+
                 //Keep trying to connect to RCON over and over until we either succeed, get a permission denied, or the server stops.
                 do
                 {
-                    connectResult = await rcon.Connect("127.0.0.1", module.settings.Rust.RconPort);
+                    string rconTargetIP = "";
+                    if (IPAddress.TryParse(module.settings.Rust.IP, out var BindIP))
+                    {
+                        rconTargetIP = IPAddress.Equals(BindIP, IPAddress.Any) ? IPAddress.Loopback.ToString() : BindIP.ToString();
+                    }
+
+                    connectResult = await rcon.Connect(rconTargetIP, module.settings.Rust.RconPort);
 
                     if (connectResult == false)
                     {
@@ -422,7 +421,7 @@ namespace RustModule
 
         void ProcessMessage(string message)
         {
-            if (String.IsNullOrEmpty(message)) { return; }
+            if (string.IsNullOrEmpty(message)) { return; }
 
             var newEntry = new ConsoleEntry()
             {
@@ -432,17 +431,6 @@ namespace RustModule
                 Timestamp = DateTime.Now
             };
 
-            if (ConsoleOutputRecieved != null)
-            {
-                var eventArgs = new CancelableEventArgs<ConsoleEntry>(newEntry);
-                ConsoleOutputRecieved(this, eventArgs);
-
-                if (eventArgs.cancel)
-                {
-                    return;
-                }
-            }
-
             if (!ProcessOutput(message))
             {
                 AddConsoleEntry(newEntry);
@@ -451,61 +439,34 @@ namespace RustModule
 
         }
 
-        private void AddConsoleEntry(ConsoleEntry newEntry)
-        {
-            consoleLines.Add(newEntry);
-
-            if (consoleLines.Count > consoleBackscrollLength)
-            {
-                consoleLines.RemoveAt(0);
-            }
-        }
-
         internal SimpleUser GetPlayer(string Id)
         {
             return Users.Where(u => u.UID == Id).FirstOrDefault();
         }
 
         [ScheduleableTask("Kick a player")]
-        public void KickPlayer(SimpleUser Player)
-        {
-            WriteLine("kick {0}", Player.Name);
-        }
+        public void KickPlayer(SimpleUser Player) => WriteLine($"kick {Player.Name}");
 
         [ScheduleableTask("Ban a player")]
-        public void BanPlayer(SimpleUser Player)
-        {
-            WriteLine("ban {0}", Player.Name);
-        }
+        public void BanPlayer(SimpleUser Player) => WriteLine($"ban {Player.Name}");
 
         [ScheduleableTask("Save the map and player inventories")]
-        public void SaveMap()
-        {
-            WriteLine("save.all");
-        }
+        public void SaveMap() => WriteLine("save.all");
 
         [ScheduleableTask("Send a chat message to everyone")]
-        public void ChatMessage(string Message)
-        {
-            WriteLine("say {0}", Message);
-        }
+        public void ChatMessage(string Message) => WriteLine($"say {Message}");
 
         [ScheduleableTask("Send a popup message to everyone")]
-        public void PopupMessage(string Message)
-        {
-            WriteLine("notice.popupall ", Message);
-        }
+        public void PopupMessage(string Message) => WriteLine($"notice.popupall {Message}");
 
         [ScheduleableTask("Perform a console command")]
-        public void ConsoleCommand(string Command)
-        {
-            PostMessage(Command);
-        }
+        public void ConsoleCommand(string Command) => PostMessage(Command);
 
         [ScheduleableTask("Start the Rust server")]
-        public void Start()
+        public ActionResult Start()
         {
             StartGameServer();
+            return ActionResult.Success;
         }
 
         [ScheduleableTask("Stop the Rust server")]
@@ -514,9 +475,9 @@ namespace RustModule
             StopApplication(false);
         }
 
-        public void Sleep()
+        public ActionResult Sleep()
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
 
         [ScheduleableTask("Restart the Rust server")]
@@ -547,7 +508,7 @@ namespace RustModule
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        void Steamcmd_UpdateProgressChange(object sender, steamcmdplugin.steamcmdhelper.UpdateProgressChangedEventArgs e)
+        void Steamcmd_UpdateProgressChange(object sender, steamcmdplugin.Steamcmdhelper.UpdateProgressChangedEventArgs e)
         {
             if (e.Finished)
             {
@@ -559,11 +520,11 @@ namespace RustModule
             }
         }
 
-        public void Update()
+        public ActionResult Update()
         {
             if (this.State != ApplicationState.Stopped)
             {
-                this.NormalStop += RustApp_AutoUpdate;
+                NormalStop += RustApp_AutoUpdate;
                 this.Stop();
             }
             else
@@ -572,85 +533,47 @@ namespace RustModule
                 module.steamcmd.UpdateAndInstallInBackground(this.ApplicationName);
                 module.steamcmd.UpdateProgressChange += (s, e) => { if (e.Finished) { InstallOxide(); } };
             }
+
+            return ActionResult.Success;
         }
 
         private async void InstallOxide()
         {
             if (!module.settings.Rust.InstallOxide) { return; }
 
-            var tempFile = Path.Combine(WorkingDir, "oxidemod.tmp");
+            var outFile = Path.Combine(WorkingDir, "Oxide-Rust.zip");
 
-            var task = module.taskmgr.CreateTask("Updating Oxide");
+            var task = module.taskmgr.CreateTask("Updating UMod");
 
-            if (await Utilities.DownloadFileWithProgressAsync("https://dl.bintray.com/oxidemod/builds/Oxide-Rust.zip", tempFile, task) == false)
+            if (await Utilities.DownloadFileWithProgressAsync(module.settings.Rust.OxideModDownloadURL, outFile, task) == false)
             {
                 return;
             }
 
-            using (var zip = new ZipFile(tempFile))
+            if (module.os == SupportedOS.Windows)
             {
-                await zip.ExtractAllAsync(WorkingDir, ExtractExistingFileAction.OverwriteSilently);
+                using (var zip = new ZipFile(outFile))
+                {
+                    await zip.ExtractAllAsync(WorkingDir, ExtractExistingFileAction.OverwriteSilently);
+                }
+            }
+            else
+            {
+                Utilities.UnzipArchive_Linux(outFile, WorkingDir);
             }
         }
 
-        void RustApp_AutoUpdate(object sender, RustApp.ServerStoppedEventArgs e)
+        void RustApp_AutoUpdate(object sender, ServerStoppedEventArgs e)
         {
-            this.NormalStop -= RustApp_AutoUpdate;
+            NormalStop -= RustApp_AutoUpdate;
             Update();
-        }
-
-        private static List<ApplicationState> ValidStates = new List<ApplicationState>() { ApplicationState.Starting, ApplicationState.Ready, ApplicationState.Stopping };
-        private Func<ApplicationState, bool> CanGetState = (currentState) => ValidStates.Contains(currentState);
-
-        public int GetCPUUsage()
-        {
-            return (CanGetState(this.State) && ApplicationProcess != null) ? ApplicationProcess.CPUUsage : 0;
-        }
-
-        public int GetRAMUsage()
-        {
-            return (CanGetState(this.State) && ApplicationProcess != null) ? ApplicationProcess.RAMUsageMB : 0;
         }
 
         public int MaxRAMUsage => 0;
 
         public int MaxUsers => module.settings.Rust.MaxPlayers;
 
-        private ApplicationState _State;
-
-        public ApplicationState State
-        {
-            get
-            {
-                return _State;
-            }
-            private set
-            {
-                if (_State != value)
-                {
-                    var oldValue = _State;
-                    _State = value;
-                    StateChanged.InvokeSafe(this, new StateChangeEventArgs(oldValue, value));
-                }
-            }
-        }
-
-        public DateTime StartTime
-        {
-            get { return (CanGetState(this.State) && ApplicationProcess != null) ? ApplicationProcess.StartTime : DateTime.Now; }
-        }
-
-        public TimeSpan Uptime
-        {
-            get { return (CanGetState(this.State) && ApplicationProcess != null) ? new TimeSpan(0) : DateTime.Now.Subtract(StartTime); }
-        }
-
-        public event EventHandler<StateChangeEventArgs> StateChanged;
-
-        public bool SupportsSleep
-        {
-            get { return false; }
-        }
+        public bool SupportsSleep => false;
 
         public string ApplicationName => "Rust Dedicated Server";
 
@@ -664,41 +587,32 @@ namespace RustModule
 
         public bool CanUpdateApplication => true;
 
-        private List<ConsoleEntry> consoleLines = new List<ConsoleEntry>();
-
-        public IEnumerable<ConsoleEntry> GetEntriesSince(DateTime? Timestamp = null)
-        {
-            DateTime Since = Timestamp ?? DateTime.MinValue;
-            return (consoleLines.Where(cl => cl.Timestamp > Since));
-        }
-
-        public event EventHandler<CancelableEventArgs<ConsoleEntry>> ConsoleOutputRecieved;
-
         private string RandomRCONPassword = "";
 
-#pragma warning disable 0162
+#pragma warning disable 0162 //Ignore 'cannot be reached' because it's conditional on DEBUG
         private string GenerateRandomPassword()
         {
 #if DEBUG
             return "testingpassword123";
 #endif
-            return Guid.NewGuid().ToString().Replace("-", "");
+            return Guid.NewGuid().ToString("N");
         }
 #pragma warning restore 0162
 
-        public void WriteLine(string format, params object[] args)
+        public void WriteLine(string message)
         {
-            string Message = (args.Length == 0) ? format : string.Format(format, args);
-
             if (State != ApplicationState.Stopped && State != ApplicationState.Sleeping)
             {
-                PostMessage(Message);
+                PostMessage(message);
             }
         }
 
         private void PostMessage(string Message)
         {
-            var result = rcon.SendMessage(new SourceRconPacket() { Body = Message, Type = SourceRconPacket.PacketType.ExecCommandOrAuthResponse }, true).Result;
+            if (rcon.Connected)
+            {
+                var result = rcon.SendMessage(new SourceRconPacket() { Body = Message, Type = SourceRconPacket.PacketType.ExecCommandOrAuthResponse }, true).GetAwaiter().GetResult();
+            }
         }
 
         public List<SimpleUser> Users { get; private set; }
@@ -763,14 +677,8 @@ namespace RustModule
 
         public string BaseDirectory
         {
-            get
-            {
-                return module.settings.Rust.SteamCMDPath;
-            }
-            set
-            {
-                module.settings.Rust.SteamCMDPath = value;
-            }
+            get => module.settings.Rust.SteamCMDPath;
+            set => module.settings.Rust.SteamCMDPath = value;
         }
 
     }

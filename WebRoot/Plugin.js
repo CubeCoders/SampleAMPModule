@@ -1,11 +1,7 @@
 ﻿//AMP Rust Module - See LICENCE.txt
-//©2017 CubeCoders Limited - All rights reserved.
+//©2017-2019 CubeCoders Limited - All rights reserved.
 
-
-/// <reference path="..\..\GSMyAdmin\WebRoot\Scripts\UI.js" />
-/// <reference path="..\..\GSMyAdmin\WebRoot\Scripts\API.js" />
-
-/* jshint undef: true, unused: false */
+/* eslint eqeqeq: "off", curly: "error", "no-extra-parens": "off" */
 /* global API,UI,PluginHandler */
 
 this.plugin = {
@@ -58,8 +54,7 @@ function handleRconTables(element) {
 
     var hashTable, hashBody, hashHead, hashRow;
 
-    for (var i = 0; i < lines.length; i++) {
-        var line = lines[i];
+    for (var line of lines) {
         if (infoTable) {
             parts = line.match(tableLineReg);
             if (parts === null) {

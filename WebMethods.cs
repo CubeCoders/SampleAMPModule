@@ -1,7 +1,4 @@
-﻿//AMP Rust Module - See LICENCE.txt
-//©2017 CubeCoders Limited - All rights reserved.
-
-using ModuleShared;
+﻿using ModuleShared;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,8 +14,15 @@ namespace RustModule
             this.module = module;
         }
 
+        public enum InGameActionPermissions
+        {
+            KickPlayer,
+            BanPlayer
+        }
+
         [UserAction("Kick")]
         [JSONMethod]
+        [RequiresPermissions(InGameActionPermissions.KickPlayer)]
         private void Kick(string ID)
         {
             module.app.KickPlayer(module.app.GetPlayer(ID));
@@ -26,6 +30,7 @@ namespace RustModule
 
         [UserAction("Ban")]
         [JSONMethod]
+        [RequiresPermissions(InGameActionPermissions.BanPlayer)]
         private void Ban(string ID)
         {
             module.app.BanPlayer(module.app.GetPlayer(ID));
