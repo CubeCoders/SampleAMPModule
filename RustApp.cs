@@ -257,7 +257,7 @@ namespace RustModule
             //GetTaggedValues() returns information about all of the settings according to their tag, which is the final parameter of the WebSetting attribute.
             var settingArgs = string.Join(" ", module.settings.Rust.GetTaggedValues().Select(kvp => $"+{kvp.Key} \"{kvp.Value.ToString()}\""));
 
-            string args = $"-batchmode -nographics -logFile +rcon.password \"{RandomRCONPassword}\" {settingArgs} +rcon.web \"False\" {module.settings.Rust.CustomArgs}";
+            string args = $"-batchmode -nographics -logFile {module.settings.Rust.LogFilePath} +rcon.password \"{RandomRCONPassword}\" {settingArgs} +rcon.web \"False\" {module.settings.Rust.CustomArgs}";
 
             ApplicationProcess.StartInfo = new ProcessStartInfo()
             {

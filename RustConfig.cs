@@ -69,6 +69,9 @@ namespace RustModule
             [WebSetting("Enable PvE", "Disallow player v.s. player combat", false, "server.pve")]
             public bool EnablePvE = false;
 
+            [ProvisionSetting("Logfile path")]
+            public string LogFilePath = "";
+
             [ProvisionSetting("Custom startup arguments")]
             public string CustomArgs = "";
         }
